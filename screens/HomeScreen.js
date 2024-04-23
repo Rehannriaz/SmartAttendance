@@ -50,6 +50,10 @@ const HomeScreen = ({ data, onNavigate }) => {
 
       {imageUploaded &&  <Button title="Show Attendance" onPress={handleNavigateToSecondScreen} />
 }
+<View className="h-96 items-center justify-center bg-slate-600">
+<Text>Open up App.jghjks to start working on your app!</Text>
+</View>
+
       
     </View>
   );

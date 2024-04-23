@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { SafeAreaView } from "react-native";
+import { View,Text,SafeAreaView } from "react-native";
 import HomeScreen from "./screens/HomeScreen";
 import SecondScreen from "./screens/SecondScreen";
 
@@ -23,6 +23,8 @@ const App = () => {
           onNavigate={() => setShowSecondScreen(false)}
         />
       )}
+
+
     </SafeAreaView>
   );
 };

@@ -1,20 +1,30 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from "react";
+import { SafeAreaView } from "react-native";
+import HomeScreen from "./screens/HomeScreen";
+import SecondScreen from "./screens/SecondScreen";
 
-export default function App() {
+const App = () => {
+  const [showSecondScreen, setShowSecondScreen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const handleNavigateToSecondScreen = (imageUri) => {
+    setSelectedImage(imageUri); // Set the selected image URI
+    setShowSecondScreen(true);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView style={{ flex: 1 }}>
+      {!showSecondScreen && (
+        <HomeScreen onNavigate={handleNavigateToSecondScreen} />
+      )}
+      {showSecondScreen && (
+        <SecondScreen
+          selectedImage={selectedImage} // Pass the selected image to SecondScreen
+          onNavigate={() => setShowSecondScreen(false)}
+        />
+      )}
+    </SafeAreaView>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default App;

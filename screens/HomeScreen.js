@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Button, FlatList, Image } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Platform } from "react-native";
 // import * as FileSystem from 'expo-asset';
 const HomeScreen = ({ data, onNavigate }) => {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -23,19 +24,22 @@ const HomeScreen = ({ data, onNavigate }) => {
       // setSelectedImage(result.uri);
       setSelectedImage(result.assets[0].uri);
       setImageUploaded(true);
-      console.log("result.url = ",result.assets[0].uri);
       //   uploadImage(result.uri);
     }
   };
-
   const handleNavigateToSecondScreen = async () => {
     if (!selectedImage) {
       alert("Please select an image first.");
       return;
     }
-  
-    const imageUri = selectedImage; // Extract URI from selectedImage
-  
+    setImageUploaded(false);
+    
+    let imageUri = selectedImage; // Extract URI from selectedImage
+    if (Platform.OS === "android") {
+      imageUri = imageUri.replace("file://", "");
+    }
+    console.log("result.url = ",imageUri);
+    
     // Create a FormData object
     const formData = new FormData();
     formData.append("image", {
@@ -44,7 +48,8 @@ const HomeScreen = ({ data, onNavigate }) => {
       name: "image.jpg",
     });
     try {
-      const response = await fetch("http://localhost:5000/recognize_faces", {
+      const response = await fetch("http://10.1.155.151:6000/recognize_faces", {
+      // const response = await fetch("http://localhost:6000/recognize_faces", {
         method: "POST",
         body: formData,
       });
@@ -60,6 +65,7 @@ const HomeScreen = ({ data, onNavigate }) => {
       setSelectedImage(imageURL);
     } catch (error) {
       console.error("Error recognizing faces:", error);
+      setImageUploaded(true);
       alert("Failed to recognize faces. Please try again.");
     }
   };

@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 // import * as FileSystem from 'expo-asset';
 const HomeScreen = ({ data, onNavigate }) => {
   const [selectedImage, setSelectedImage] = useState(null);
-    const[imageUploaded,setImageUploaded] = useState(false);
+  const [imageUploaded, setImageUploaded] = useState(false);
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -23,14 +23,45 @@ const HomeScreen = ({ data, onNavigate }) => {
       // setSelectedImage(result.uri);
       setSelectedImage(result.assets[0].uri);
       setImageUploaded(true);
-      console.log(result.uri);
+      console.log("result.url = ",result.assets[0].uri);
       //   uploadImage(result.uri);
     }
   };
 
-
-  const handleNavigateToSecondScreen = () => {
-    onNavigate(selectedImage); // Pass selectedImage to SecondScreen
+  const handleNavigateToSecondScreen = async () => {
+    if (!selectedImage) {
+      alert("Please select an image first.");
+      return;
+    }
+  
+    const imageUri = selectedImage; // Extract URI from selectedImage
+  
+    // Create a FormData object
+    const formData = new FormData();
+    formData.append("image", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "image.jpg",
+    });
+    try {
+      const response = await fetch("http://localhost:5000/recognize_faces", {
+        method: "POST",
+        body: formData,
+      });
+      console.log(JSON.stringify(formData), "formData");
+      if (!response.ok) {
+        throw new Error("Failed to recognize faces.");
+      }
+  
+      const blob = await response.blob();
+      const imageURL = URL.createObjectURL(blob);
+  
+      // Display the image with recognized faces
+      setSelectedImage(imageURL);
+    } catch (error) {
+      console.error("Error recognizing faces:", error);
+      alert("Failed to recognize faces. Please try again.");
+    }
   };
 
   // Replace with your UI logic to display fetched data
@@ -43,18 +74,16 @@ const HomeScreen = ({ data, onNavigate }) => {
             source={{ uri: selectedImage }}
             style={{ width: 800, height: 600 }}
           />
-          <Text>HELLOSADASD</Text>
         </>
       )}
       <Button title="Pick an Image" onPress={pickImage} />
 
-      {imageUploaded &&  <Button title="Show Attendance" onPress={handleNavigateToSecondScreen} />
-}
-<View className="h-96 items-center justify-center bg-slate-600">
-<Text>Open up App.jghjks to start working on your app!</Text>
-</View>
-
-      
+      {imageUploaded && (
+        <Button
+          title="Show Attendance"
+          onPress={handleNavigateToSecondScreen}
+        />
+      )}
     </View>
   );
 };

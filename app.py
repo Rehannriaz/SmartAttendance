@@ -9,7 +9,7 @@ from mtcnn import MTCNN
 import numpy as np
 import face_recognition
 from keras_facenet import FaceNet
-
+import pandas as pd
 
 
 app = Flask(__name__)
@@ -24,6 +24,8 @@ with open('known_face_names.pkl', 'rb') as f:
 setThreshold = 1.0
 detector = MTCNN()
 embedder = FaceNet()
+
+presentFaces = []
 
 @app.route('/recognize_faces', methods=['POST'])
 def recognize_faces():
@@ -74,11 +76,46 @@ def recognize_faces():
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(unknown_image_rgb, name, (x + 6, y + h - 6), font, 1.5, (255, 255, 255), 1)
 
+    
+    with open('face_names.pkl', 'wb') as f:
+        pickle.dump(face_names, f)
+    
+    
+    
     # Convert the image back to bytes
     _, img_encoded = cv2.imencode('.jpg', unknown_image_rgb)
     img_bytes = img_encoded.tobytes()
 
     return send_file(BytesIO(img_bytes), mimetype='image/jpeg')
+
+@app.route('/get_attendance', methods=['GET'])
+def get_attendace():
+    
+    with open('face_names.pkl', 'rb') as f:
+        face_names = pickle.load(f)
+    
+    if os.path.exists('attendance.csv'):
+        os.remove('attendance.csv')
+
+    face_names = [name for name in face_names if '?' not in name]
+
+    unique_names = set(known_face_names)
+
+    absent_names = [name for name in unique_names if name not in face_names]
+    print(face_names)
+    # Create DataFrame
+    df = pd.DataFrame({'Name': face_names + absent_names, 'Present': ['Yes'] * len(face_names) + ['No'] * len(absent_names)})
+    df = df.sort_values(by='Name')
+    # df = pd.DataFrame({'Name': face_names, 'Present': ['Yes'] * len(presentFaces)})
+
+
+    # Save DataFrame to Excel
+    df.to_csv('attendance.csv', index=False)
+    
+    return send_file('attendance.csv', as_attachment=True)
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=6000,debug=True)

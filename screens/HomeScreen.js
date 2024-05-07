@@ -10,13 +10,21 @@ import {
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
-import { Platform } from "react-native";
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import { Platform } from 'react-native';
+import * as Permissions from 'expo-permissions';
+
+
+const mainURL = "http://10.1.155.151:6000";
 
 // import * as FileSystem from 'expo-asset';
 const HomeScreen = ({ data, onNavigate }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageUploaded, setImageUploaded] = useState(false);
-  const [handleCalled,setHandleCalled] = useState(false);
+  const [handleCalled, setHandleCalled] = useState(false);
+  const [showDownloadButton, setShowDownloadButton] = useState(false);
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -38,6 +46,54 @@ const HomeScreen = ({ data, onNavigate }) => {
       //   uploadImage(result.uri);
     }
   };
+
+  // const handleAttendanceDownload = async () => {
+  //   try {
+  //     const response = await fetch(mainURL + "/get_attendance", {
+  //       method: "GET",
+  //     });
+  //     console.log("response", response);
+  //   } catch (error) {
+  //     console.error("Error Download Attendance: ", error);
+  //     setImageUploaded(true);
+  //     setHandleCalled(false);
+  //     setShowDownloadButton(false);
+  //     alert("Failed to download attendance. Please try again.");
+  //   }
+  // };
+
+  const handleAttendanceDownload = async () => {
+    try {
+      const response = await fetch(mainURL + "/get_attendance", {
+        method: "GET",
+      });
+      const fileName = response.headers.get('Content-Disposition').split('=')[1];
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result.split(',')[1];
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(fileUri, base64data, { encoding: FileSystem.EncodingType.Base64 });
+  
+        const permission = await Permissions.askAsync(Permissions.MEDIA_LIBRARY_WRITE_ONLY);
+        if (permission.status !== 'granted') {
+          throw new Error('Permission not granted to save file');
+        }
+        await MediaLibrary.saveToLibraryAsync(fileUri);
+  
+        console.log("File downloaded successfully");
+      };
+    } catch (error) {
+      console.error("Error Download Attendance: ", error);
+      setImageUploaded(true);
+      setHandleCalled(false);
+      setShowDownloadButton(false);
+      alert("Failed to download attendance. Please try again.");
+    }
+  };
+
+
   const handleNavigateToSecondScreen = async () => {
     if (!selectedImage) {
       alert("Please select an image first.");
@@ -59,7 +115,7 @@ const HomeScreen = ({ data, onNavigate }) => {
       name: "image.jpg",
     });
     try {
-      const response = await fetch("http://10.1.155.151:6000/recognize_faces", {
+      const response = await fetch(mainURL + "/recognize_faces", {
         // const response = await fetch("http://localhost:6000/recognize_faces", {
         method: "POST",
         body: formData,
@@ -75,14 +131,16 @@ const HomeScreen = ({ data, onNavigate }) => {
       // Display the image with recognized faces
       setSelectedImage(imageURL);
       setHandleCalled(false);
+      setShowDownloadButton(true);
     } catch (error) {
       console.error("Error recognizing faces:", error);
       setImageUploaded(true);
       setHandleCalled(false);
+      setShowDownloadButton(false);
       alert("Failed to recognize faces. Please try again.");
     }
   };
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
   // Replace with your UI logic to display fetched data
   return (
@@ -129,20 +187,33 @@ const HomeScreen = ({ data, onNavigate }) => {
           }}
           onPress={handleNavigateToSecondScreen}
         >
-
-          
           <Text style={{ color: "white", fontSize: 20 }}>Show Attendance</Text>
         </TouchableOpacity>
-
       )}
-      {handleCalled &&
-        (
+      {handleCalled && (
+        <Text style={{ color: "black", fontSize: 20 }}>
+          Recognizing Faces...
+        </Text>
+      )}
 
-          <Text style={{ color: "black", fontSize: 20 }}>Recognizing Faces...</Text>
-        )
-      }
-      
-     
+      {showDownloadButton && (
+        <TouchableOpacity
+          style={{
+            backgroundColor: "black",
+            color: "white",
+            borderRadius: 8,
+            padding: 10,
+            alignItems: "center",
+            width: "60%", // Fix width to 60%
+            marginTop: 60, // Add margin top for spacing
+          }}
+          onPress={handleAttendanceDownload}
+        >
+          <Text style={{ color: "white", fontSize: 20 }}>
+            Download Attendance
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

@@ -1,11 +1,14 @@
 import os
 import cv2
-import face_recognition
 import numpy as np
 import pickle
 from flask import Flask, request, send_file
 from flask_cors import CORS
 from io import BytesIO
+from mtcnn import MTCNN
+import numpy as np
+import face_recognition
+from keras_facenet import FaceNet
 
 
 
@@ -18,16 +21,9 @@ with open('known_face_encodings.pkl', 'rb') as f:
 with open('known_face_names.pkl', 'rb') as f:
     known_face_names = pickle.load(f)
 
-# @app.route('/test', methods=['GET'])
-# def test():
-#     return 'Hello, World!'
-
-# @app.route('/postTest', methods=['POST'])
-# def postTest():
-#     file = request.files['image'].data
-    
-#     return ('Hello')
-
+setThreshold = 1.0
+detector = MTCNN()
+embedder = FaceNet()
 
 @app.route('/recognize_faces', methods=['POST'])
 def recognize_faces():
@@ -47,31 +43,36 @@ def recognize_faces():
     unknown_image = face_recognition.load_image_file(image_stream)
     unknown_image_rgb = cv2.cvtColor(unknown_image, cv2.COLOR_BGR2RGB)
 
-    # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(unknown_image_rgb)
-    face_encodings = face_recognition.face_encodings(unknown_image_rgb, face_locations)
-
+    unknown_image_rgb = cv2.cvtColor(unknown_image, cv2.COLOR_BGR2RGB)
+    # Detect faces in the unknown image
+    results = detector.detect_faces(unknown_image_rgb)
     face_names = []
-    for face_encoding in face_encodings:
-        # See if the face is a match for the known face(s)
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.5)
-        name = "?"  # If no match found, print "?"
-
-        if True in matches:
-            first_match_index = matches.index(True)
-            name = known_face_names[first_match_index]
-
-        face_names.append(name)
+    for result in results:
+        x, y, width, height = result['box']
+        face_crop = unknown_image_rgb[y:y+height, x:x+width]
+        if face_crop.size == 0:
+            continue
+        face_features = embedder.embeddings([face_crop])[0]
+        min_distance = float('inf')
+        name = '?'
+        for i, known_face_encoding in enumerate(known_face_encodings):
+            distance = np.linalg.norm(face_features - known_face_encoding)
+            if distance < min_distance:
+                min_distance = distance
+                name = known_face_names[i]
+        if min_distance <= setThreshold:
+            face_names.append(name)
+        else:
+            face_names.append('?')
 
     # Display the results
-    for (top, right, bottom, left), name in zip(face_locations, face_names):
+    for (x, y, w, h), name in zip([(result['box'][0], result['box'][1], result['box'][2], result['box'][3]) for result in results], face_names):
         # Draw a box around the face
-        cv2.rectangle(unknown_image_rgb, (left, top), (right, bottom), (0, 0, 255), 2)
-
+        cv2.rectangle(unknown_image_rgb, (x, y), (x+w, y+h), (0, 0, 255), 2)
         # Draw a label with a name below the face
-        cv2.rectangle(unknown_image_rgb, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+        cv2.rectangle(unknown_image_rgb, (x, y + h - 35), (x + w, y + h), (0, 0, 255), cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(unknown_image_rgb, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+        cv2.putText(unknown_image_rgb, name, (x + 6, y + h - 6), font, 1.5, (255, 255, 255), 1)
 
     # Convert the image back to bytes
     _, img_encoded = cv2.imencode('.jpg', unknown_image_rgb)

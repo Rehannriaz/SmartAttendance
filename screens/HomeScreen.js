@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  Button,
-  FlatList,
   Image,
   TouchableOpacity,
   Dimensions,
@@ -11,15 +9,13 @@ import {
 
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
 import { Platform } from 'react-native';
-import * as Permissions from 'expo-permissions';
-
+import * as Sharing from 'expo-sharing';
 
 const mainURL = "http://10.1.155.151:6000";
 
 // import * as FileSystem from 'expo-asset';
-const HomeScreen = ({ data, onNavigate }) => {
+const HomeScreen = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageUploaded, setImageUploaded] = useState(false);
   const [handleCalled, setHandleCalled] = useState(false);
@@ -47,43 +43,39 @@ const HomeScreen = ({ data, onNavigate }) => {
     }
   };
 
-  // const handleAttendanceDownload = async () => {
-  //   try {
-  //     const response = await fetch(mainURL + "/get_attendance", {
-  //       method: "GET",
-  //     });
-  //     console.log("response", response);
-  //   } catch (error) {
-  //     console.error("Error Download Attendance: ", error);
-  //     setImageUploaded(true);
-  //     setHandleCalled(false);
-  //     setShowDownloadButton(false);
-  //     alert("Failed to download attendance. Please try again.");
-  //   }
-  // };
 
+
+  
   const handleAttendanceDownload = async () => {
     try {
       const response = await fetch(mainURL + "/get_attendance", {
         method: "GET",
       });
-      const fileName = response.headers.get('Content-Disposition').split('=')[1];
-      const blob = await response.blob();
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64data = reader.result.split(',')[1];
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, base64data, { encoding: FileSystem.EncodingType.Base64 });
   
-        const permission = await Permissions.askAsync(Permissions.MEDIA_LIBRARY_WRITE_ONLY);
-        if (permission.status !== 'granted') {
-          throw new Error('Permission not granted to save file');
-        }
-        await MediaLibrary.saveToLibraryAsync(fileUri);
+      if (!response.ok) {
+        throw new Error("Failed to download attendance.");
+      }
   
-        console.log("File downloaded successfully");
-      };
+      const json = await response.json();
+      console.log("Attendance JSON:", json);
+  
+      // Convert JSON to CSV string
+      const csvString = json.map(obj => Object.values(obj).join(',')).join('\n');
+      
+      const currentDate = new Date();
+      const day = currentDate.getDate().toString().padStart(2, '0');
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0'); // Months are zero-based
+      const year = currentDate.getFullYear().toString().slice(-2);
+
+      const filename = `attendance_${day}_${month}_${year}.csv`;
+
+      
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, csvString,{encoding: FileSystem.EncodingType.UTF8});
+
+      await Sharing.shareAsync(fileUri, {mimeType: 'text/csv', dialogTitle: 'Attendance CSV', UTI: 'public.comma-separated-values-text'});
+
     } catch (error) {
       console.error("Error Download Attendance: ", error);
       setImageUploaded(true);
@@ -92,7 +84,7 @@ const HomeScreen = ({ data, onNavigate }) => {
       alert("Failed to download attendance. Please try again.");
     }
   };
-
+  
 
   const handleNavigateToSecondScreen = async () => {
     if (!selectedImage) {
@@ -116,7 +108,6 @@ const HomeScreen = ({ data, onNavigate }) => {
     });
     try {
       const response = await fetch(mainURL + "/recognize_faces", {
-        // const response = await fetch("http://localhost:6000/recognize_faces", {
         method: "POST",
         body: formData,
       });

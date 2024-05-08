@@ -88,31 +88,54 @@ def recognize_faces():
 
     return send_file(BytesIO(img_bytes), mimetype='image/jpeg')
 
+# @app.route('/get_attendance', methods=['GET'])
+# def get_attendace():
+    
+#     with open('face_names.pkl', 'rb') as f:
+#         face_names = pickle.load(f)
+    
+#     if os.path.exists('attendance.csv'):
+#         os.remove('attendance.csv')
+
+#     face_names = [name for name in face_names if '?' not in name]
+
+#     unique_names = set(known_face_names)
+
+#     absent_names = [name for name in unique_names if name not in face_names]
+#     print(face_names)
+#     # Create DataFrame
+#     df = pd.DataFrame({'Name': face_names + absent_names, 'Present': ['Yes'] * len(face_names) + ['No'] * len(absent_names)})
+#     df = df.sort_values(by='Name')
+#     # df = pd.DataFrame({'Name': face_names, 'Present': ['Yes'] * len(presentFaces)})
+
+
+#     # Save DataFrame to Excel
+#     df.to_csv('attendance.csv', index=False)
+    
+#     return send_file('attendance.csv', as_attachment=True)
 @app.route('/get_attendance', methods=['GET'])
-def get_attendace():
+def get_attendance():
     
     with open('face_names.pkl', 'rb') as f:
         face_names = pickle.load(f)
     
-    if os.path.exists('attendance.csv'):
-        os.remove('attendance.csv')
-
+    # Filter out unknown faces
     face_names = [name for name in face_names if '?' not in name]
-
+    face_names = list(set(face_names))
+    # Get unique known names
     unique_names = set(known_face_names)
 
+    # Find absent names
     absent_names = [name for name in unique_names if name not in face_names]
-    print(face_names)
+
     # Create DataFrame
     df = pd.DataFrame({'Name': face_names + absent_names, 'Present': ['Yes'] * len(face_names) + ['No'] * len(absent_names)})
     df = df.sort_values(by='Name')
-    # df = pd.DataFrame({'Name': face_names, 'Present': ['Yes'] * len(presentFaces)})
 
+    # Convert DataFrame to JSON
+    json_response = df.to_json(orient='records')
 
-    # Save DataFrame to Excel
-    df.to_csv('attendance.csv', index=False)
-    
-    return send_file('attendance.csv', as_attachment=True)
+    return json_response
 
 
 
